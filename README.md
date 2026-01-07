@@ -33,10 +33,10 @@ YLink is a custom high-speed communication protocol designed to support half-dup
 ## Write Transaction Flow (Master → Slave)
 
 **Master FSM**
-IDLE → TAKE → HEADER → WAIT_ACK → DECIDE → SEND_DATA → STOP → DONE
+ : IDLE → TAKE → HEADER → WAIT_ACK → DECIDE → SEND_DATA → STOP → DONE
 
 **Slave FSM**
-IDLE → HEADER → ACK → DECIDE → RECV_DATA → STOP → DONE
+ : IDLE → HEADER → ACK → DECIDE → RECV_DATA → STOP → DONE
 
 ## Read Transaction Flow (Slave → Master)
 
