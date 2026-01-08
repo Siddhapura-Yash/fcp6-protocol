@@ -1,4 +1,4 @@
-module master(input clk,
+module master2(input clk,
               input rst,
               input start,
               input [7:0]header_in,
@@ -8,172 +8,283 @@ module master(input clk,
               inout [1:0]ctrl,
               output reg busy);
   
-  parameter [3:0] IDLE = 3'b0000,TAKE_BUS = 3'b0001, SEND_HEADER = 3'b0010, WAIT_ACK = 3'b0011, DECIDE = 3'b0100, SEND_DATA= 3'b0101, RECEIVE_DATA = 3'b0110, RELEASE_CTRL_BUS = 3'b0111, RECEIVE_DATA = 3'b1000, STOP = 3'b1001, DONE = 3'b1010;
+  parameter [3:0] IDLE = 4'b0000,TAKE_BUS = 4'b0001, SEND_HEADER = 4'b0010, WAIT_ACK = 4'b0011, DECIDE = 4'b0100, SEND_DATA= 4'b0101, SEND_ACK  = 4'b0110, RELEASE_CTRL_BUS = 4'b0111, RECEIVE_DATA = 4'b1000, STOP = 4'b1001, DONE = 4'b1010, RECEIVE_ACK = 4'b1011;
+  
+  //Remaining state
+ 
   
   reg [3:0]state;
   reg [7:0]header_data;
-  reg [2:0]header_count = 0;
-  reg [7:0]memory[63:0]; //8 bit with 64 location used for receive data
-  reg [2:0]count;
-  reg stop_done;
-  reg [2:0]send_count;
-    
-  always@(posedge clk or negedge rst) begin
-    if(!rst) begin
-      data <= 0;
-      busy <= 0;
+  reg [2:0]count; //inside take_bus state for header transmission
+  reg [7:0]read_data; //reading from slave 
+  reg [7:0]saved_data = 8'b10101010; //will use for writing to slave
+  reg [2:0]header_count;
+  reg ack_enable;
+  reg ack_out;
+  reg [1:0]ctrl_out;
+  reg ctrl_enable;
+  
+  reg [1:0]data_out;
+  reg data_enable;
+  
+  //FSM LOGIC
+  always@(posedge clk or posedge rst) begin
+    if(rst) begin
       state <= IDLE;
+      busy <= 0;
     end
-	else begin
+    else begin
+	busy <= (state != IDLE);
+
       case(state) 
         IDLE : begin
           if(start) begin
             state <= TAKE_BUS;
+            header_data <= header_in;
+          end
+          else begin
+            state <= IDLE;
           end
         end
         
         TAKE_BUS : begin
           state <= SEND_HEADER;
+          count <= 6;
           header_count <= 6;
         end
         
         SEND_HEADER : begin
-          if(header_count == 0) begin	//if count = 0 means we have send all the data and go for ACK 
+          if(header_count == 0) begin	//if count = 0 means we have send all the header data and go for ACK 
           	state <= WAIT_ACK;
           end
           else begin	
-            header_count <= header_count - 2;
+//             header_count <= header_count - 2;
+            header_count <= (header_count >= 2) ? header_count - 2 : 0;
+			state <= SEND_HEADER;
           end
         end
         
         WAIT_ACK : begin
-          if(ack) begin
+          if(ack == 0) begin
+            count <= 6;
             state <= DECIDE;
+          end
+          else if(ack == 1) begin
+            state <= STOP;
           end
         end
         
         DECIDE : begin
-          if(header_in[0] == 0) begin	//read operation
+          if(header_data[0] == 0) begin	//0 = read
             state <= RELEASE_CTRL_BUS;
           end
-          else begin					//write operation
-            state <= SEND_DATA;
-            count <= 7;
-          end
+             else if(header_data[0]) begin
+               state <= SEND_DATA;
+             end
         end
-        
-        SEND_DATA : begin
-          if(ctrl == 01) begin
-              if(location < 63) begin
-                if(send_count == 0) begin
-                   send_count <= 7;
-                   location = location + 1;
-              	 end
-               end
-              else begin
-                send_count <= send_count + 2;
+             
+         SEND_DATA : begin	//Write operation
+           if(count == 0) begin
+             state <= RECEIVE_ACK;
+           end
+           else begin
+//              count <= count - 2;
+             count <= (count >= 2) ? count - 2 : 0;
+
+             state <= SEND_DATA;
+           end
+         end
+             
+         RELEASE_CTRL_BUS : begin
+           state <= RECEIVE_DATA;
+         end
+		
+         RECEIVE_ACK : begin
+           if(ack == 0) begin
+// 			state <= STOP;	//we are intially sending 1 byte
+             state <= DONE;
+           end
+           else if(ack == 1) begin
+             state <= SEND_DATA;
+           end
+		 end
+             
+          RECEIVE_DATA : begin	//Read operation
+            if(header_data[0] == 0) begin	//again cheking for R/W operation
+            read_data[count +: 2] <= data;
+              if(count == 0) begin
+                state <= SEND_ACK;
               end
-		  end
-          else if(ctrl == 11) begin
-            state <= stop;
-            stop_done <= 1;
-          end
-        end
-        
-		RELEASE_CTRL_BUS : begin
-          state <= RECEIVE_DATA;
-          ctrl <= 10;
-          release_bus <= 1;	//not implemented yet (for assign at the end)
-          location <= 0;
-          count <= 0;
-        end
-        
-        RECEIVE_DATA : begin
-          if(ctrl == 2'b10) begin
-            if(location < 63) begin
-              if(count <= 7) begin
-                 memory[location][count +: 2] <= data[1:0];
-                  if(count == 7) begin  // Move pointer
-                    count <= 0;           // next frame
-                    location <= location + 1;
-                  end
-                  else begin
-                    count <= count + 2;
-                  end
+              else begin
+//                 count <= count - 2;
+                count <= (count >= 2) ? count - 2 : 0;
+
+                state <= RECEIVE_DATA;
+              end
               end
             end
-          end
-          else if(ctrl == 11) begin
-            state <= STOP;
-            stop_done <= 1;
-          end
-        end
-        
-        STOP : begin
-          if(stop_done == 1) begin
-            state <= DONE;
-          end
-        end
-        
-        DONE : begin
-          state <= IDLE;
-        end
-
+             
+           SEND_ACK : begin	//data received successfully
+             state <= STOP;
+           end
+             
+             STOP : begin
+               if(ctrl == 2'b11) begin //end of communication
+               		state <= DONE;
+             	end
+               else if(header_data[0] == 0) begin	//slave still sending data
+                   state <= RECEIVE_DATA;
+                 count <= 6;
+             	end
+               else if(header_data[0] == 1) begin //master still want to send data
+                   state <= SEND_DATA;
+                 count <= 6;
+             	end
+				else begin
+                	state <= DONE;
+             	end
+			  end
+             
+             DONE : begin
+               state <= IDLE;
+             end
+        default : state <= IDLE;
+      endcase
     end
   end
         
-        always@(negedge clk) begin
-          case(state)
-            IDLE : begin
-              
-            end
-            
-            
-            TAKE_BUS : begin
-              
-            end
-            
-            
-            SEND_HEADER : begin
-              data[1:0] <= header_data[header_count +: 2];	//header_data[start_index +: width]	
-            end
-            
-            
-            WAIT_ACK : begin
-              
-            end
-            
-            
-            DECIDE : begin
-              if(header_in[0] == 0) begin	//read operation
-                
-              end
-              else begin					//write operation
-                data <= saved_data[location][count +: 2];
-              end
-            end 
-            
-            
-            SEND_DATA : begin
-              data <= memory[location][send_count +: 2];
-            end
-            
-            
-            RECEIVE_DATA : begin
-              
-            end
-            
-            
-			STOP : begin
-              if(ctrl == 11) begin
-                
-              end
-        	end
+             
+             //tri - state logic
+             always@(negedge clk or posedge rst) begin
+               if(rst) begin
+                 data_enable <= 0;
+                 ack_enable <= 0;
+                 ctrl_enable <= 0;
+                 ctrl_out <= 0;
+                 ack_out <= 0;
+                 data_out <= 2'b00;
+               end
+               else begin
+                 case(state) 
+                   
+                   IDLE : begin
+                     //nothing to write
+                   end
+                   
+                   TAKE_BUS : begin
+                     data_enable <= 1;
+                     ctrl_out <= 2'b01;
+                     ctrl_enable <= 1;
+                 	 ack_enable <= 0;
+                   end
+                   
+                   SEND_HEADER : begin
+                     data_out <= header_data[count +: 2];
+                     data_enable <= 1;
+                     ctrl_out <= 2'b01;
+                     ctrl_enable <= 1;
+                     ack_enable <= 0;
+                   end
+                   
+                   WAIT_ACK : begin
+                     data_enable <= 0;
+                     ack_enable <= 0;
+                     ctrl_enable <= 1;
+					 ctrl_out <= 2'b01;
+                   end
+                   
+                   DECIDE : begin
+                     if(header_data[0] == 0) begin //we are reading
+                       data_enable <= 0;
+                 	   ack_enable <= 0;
+                 	   ctrl_enable <= 0;
+                     end
+                     else if (header_data[0]) begin //write
+                       data_enable <= 1;
+                       ctrl_out <= 2'b01;
+                       ctrl_enable <= 1;
+                       ack_enable <= 0;
+                     end
+                   end
+                        
+					SEND_DATA : begin
+                      data_out <= saved_data[count +: 2];
+                      data_enable <= 1;
+                      ctrl_out <= 2'b01;
+                      ctrl_enable <= 1;
+                      ack_enable <= 0;
+                    end
+                        
+                     RELEASE_CTRL_BUS : begin //releasing bus while reading
+                        data_enable <= 0;
+                        ack_enable <= 0;
+                        ctrl_enable <= 0;
+                     end
+                        
+					RECEIVE_ACK : begin
+						data_enable <= 0;
+                        ack_enable <= 0;
+                        ctrl_enable <= 1;
+                        ctrl_out <= 2'b11;
+					end
+                     
+                     RECEIVE_DATA : begin
+                         data_enable <= 0;
+                         ack_enable <= 0;
+                         ctrl_enable <= 0;
+                     end
+                        
+                     SEND_ACK : begin
+                         data_enable <= 1;
+                         ack_enable <= 1;
+                       	 ack_out <= 1;
+                         ctrl_enable <= 1;
+                         ctrl_out <= 2'b01;
+                     end
+                        
+					 STOP : begin
+                       if(ctrl == 2'b11) begin //end of communication
+                         data_enable <= 0;
+                         ctrl_out <= 2'b11;
+                         ctrl_enable <= 1;
+                       end
+					   else if(ctrl == 2'b10) begin	//slave still sending data
+//                           count <= 6;
+                          data_enable <= 0; 
+                        end
+                       else if(ctrl == 2'b01) begin //master still want to send data
+//                          count <= 6;
+                         data_enable <= 1;
+                         ctrl_out <= 2'b01;
+                       ctrl_enable <= 1;
+                       end
+                     end
+                        
+                     DONE : begin
+                       data_enable <= 0;
+                       ctrl_enable <= 0;
+                       ack_enable <= 0;
+                     end
+                   
+                 default: begin
+                  data_enable <= 0;
+                  ack_enable  <= 0;
+                  ctrl_enable <= 0;
+                  ctrl_out    <= 2'b00;
+                end
+                 endcase
+               end
+             end
+             
+             
         
-            
-        	DONE : begin
-          	  
-        	end
-            
-          
-        end
+		assign data =(data_enable) ? data_out : 'bz;
+// 		assign busy = (state == IDLE) ? 0 : 1;
+		assign ack = (ack_enable) ? ack_out : 'bz;
+		assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+                   
+// assign data = (data_enable && ctrl == 2'b01) ? data_out : 'bz;
+// assign ack  = (ack_enable  && ctrl == 2'b10) ? ack_out  : 'bz;
+// assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+
+endmodule
