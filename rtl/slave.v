@@ -41,8 +41,8 @@ module slave(input clk,
             state <= SEND_ACK;
           end
           else begin
-//             count = count - 2;
-            count <= (count >= 2) ? count - 2 : 0;
+            count = count - 2;
+//             count <= (count >= 2) ? count - 2 : 0;
             state <= RECEIVE_HEADER;
           end
         end
@@ -142,10 +142,10 @@ module slave(input clk,
           end
             
            SEND_ACK : begin
-             data_enable <= 1;
+             data_enable <= 0;
              data_out <= 0;
              ctrl_out <= 2'b10;
-		    ctrl_enable <= 1;
+		     ctrl_enable <= 1;
              ack_enable <= 1;
              ack_out <= 0;
            end
@@ -183,7 +183,7 @@ module slave(input clk,
             RECEIVE_ACK : begin
               data_enable <= 0;
               ack_enable <= 0;
-              ctrl_enable <= 1;
+              ctrl_enable <= 0;
               ctrl_out <= 2'b10;
             end
             

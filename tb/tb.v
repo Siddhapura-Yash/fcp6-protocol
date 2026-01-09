@@ -51,7 +51,7 @@ module tb_top;
     else
       $display("TEST FAILED");
 
-    #2000;
+    #200;
     $finish;
   end
 
@@ -65,4 +65,3 @@ module tb_top;
   end
 
 endmodule
-

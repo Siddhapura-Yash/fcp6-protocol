@@ -41,6 +41,7 @@ module master2(input clk,
           if(start) begin
             state <= TAKE_BUS;
             header_data <= header_in;
+            header_count <= 6;
           end
           else begin
             state <= IDLE;
@@ -50,16 +51,15 @@ module master2(input clk,
         TAKE_BUS : begin
           state <= SEND_HEADER;
           count <= 6;
-          header_count <= 6;
         end
         
         SEND_HEADER : begin
-          if(header_count == 0) begin	//if count = 0 means we have send all the header data and go for ACK 
+          if(header_count == 0) begin	//if count = 0 means we have send all the header data  
           	state <= WAIT_ACK;
           end
           else begin	
-//             header_count <= header_count - 2;
-            header_count <= (header_count >= 2) ? header_count - 2 : 0;
+            header_count <= header_count - 2;
+//             header_count <= (header_count >= 2) ? header_count - 2 : 0;
 			state <= SEND_HEADER;
           end
         end
@@ -168,7 +168,7 @@ module master2(input clk,
                  case(state) 
                    
                    IDLE : begin
-                     //nothing to write
+                     header_count <= 6;
                    end
                    
                    TAKE_BUS : begin
@@ -176,10 +176,11 @@ module master2(input clk,
                      ctrl_out <= 2'b01;
                      ctrl_enable <= 1;
                  	 ack_enable <= 0;
+                     data_out <= header_data[count +: 2];
                    end
                    
                    SEND_HEADER : begin
-                     data_out <= header_data[count +: 2];
+                     data_out <= header_data[header_count +: 2];
                      data_enable <= 1;
                      ctrl_out <= 2'b01;
                      ctrl_enable <= 1;
@@ -278,13 +279,13 @@ module master2(input clk,
              
              
         
-		assign data =(data_enable) ? data_out : 'bz;
-// 		assign busy = (state == IDLE) ? 0 : 1;
-		assign ack = (ack_enable) ? ack_out : 'bz;
-		assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+// 		assign data =(data_enable) ? data_out : 'bz;
+// // 		assign busy = (state == IDLE) ? 0 : 1;
+// 		assign ack = (ack_enable) ? ack_out : 'bz;
+// 		assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
                    
-// assign data = (data_enable && ctrl == 2'b01) ? data_out : 'bz;
-// assign ack  = (ack_enable  && ctrl == 2'b10) ? ack_out  : 'bz;
-// assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+assign data = (data_enable && ctrl == 2'b01) ? data_out : 'bz;
+assign ack  = (ack_enable  && ctrl == 2'b10) ? ack_out  : 'bz;
+assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
 
 endmodule
