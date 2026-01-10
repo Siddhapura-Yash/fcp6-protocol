@@ -134,11 +134,13 @@ module master2(input clk,
                		state <= DONE;
              	end
                else if(header_data[0] == 0) begin	//slave still sending data
-                   state <= RECEIVE_DATA;
+//                    state <= RECEIVE_DATA;
+                 state <= DONE;	//cuz we are doing for 1 byte only later will use aboev
                  count <= 6;
              	end
                else if(header_data[0] == 1) begin //master still want to send data
-                   state <= SEND_DATA;
+//                    state <= SEND_DATA;
+                 state <= DONE; //we are using 1 byte only as of now
                  count <= 6;
              	end
 				else begin
@@ -239,7 +241,7 @@ module master2(input clk,
                      SEND_ACK : begin
                          data_enable <= 1;
                          ack_enable <= 1;
-                       	 ack_out <= 1;
+                       	 ack_out <= 0;
                          ctrl_enable <= 1;
                          ctrl_out <= 2'b01;
                      end

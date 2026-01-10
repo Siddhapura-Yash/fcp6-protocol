@@ -26,7 +26,6 @@ module tb_top;
   );
 
   initial begin
-    $display("----- CUSTOM PROTOCOL FULL TEST -----");
 
     rst = 1;
     start = 0;
@@ -44,14 +43,35 @@ module tb_top;
 
     start = 1; #10; start = 0;
 
-
-    if(DUT.MASTER.read_data == 8'hA5)
-      $display("TEST PASSED");
-    else
+	#200;
+    if(DUT.SLAVE.received_data == 8'hA5) begin
+      $display("WRITE TRANSACTION TEST PASSED");
+      $display("Expected data = %d | Received data = %d",data_in,DUT.SLAVE.received_data);
+    end
+    else	begin
       $display("TEST FAILED");
+  end
 
-    #200;
     $display("READ DATA = %h", DUT.SLAVE.received_data);
+    
+    #200;
+    //--------------------------READ TEST------------------------------
+    $display("READ TRANSACTION");
+    header_in = 8'b01100110;
+    data_in = 8'hA5;
+    
+    start = 1; #10; start = 0;
+    
+    #200;
+    $display("Read data = %d",DUT.MASTER.read_data);
+    if(DUT.MASTER.read_data == 8'd88) begin
+      $display("READ TRANSACTION TEST PASSED");
+      $display("Expected data = %d | Received data = %d",DUT.SLAVE.saved_data,DUT.MASTER.read_data);
+    end
+    else begin
+      $display("TEST FAILED");
+    end
+    
     $finish;
   end
 

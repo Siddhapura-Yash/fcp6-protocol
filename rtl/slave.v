@@ -11,7 +11,7 @@ module slave(input clk,
   reg [3:0]state = IDLE;
   reg [2:0]count = 6;
   reg [7:0]header_data;
-  reg [7:0]saved_data = 8'b01010101;
+  reg [7:0]saved_data = 8'd88;
   reg [7:0]received_data;
   reg [2:0]receive_count;
   
@@ -27,13 +27,13 @@ module slave(input clk,
    	  case(state)
         
         IDLE : begin
-//             if(ctrl == 2'b01) begin     // legal START frame
-//               state <= RECEIVE_HEADER;
-//               count <= 6;
-//             end
-//             else begin
-//               state <= IDLE;           // ignore floating bus
-//             end
+            if(ctrl == 2'b01) begin     // legal START frame
+              state <= RECEIVE_HEADER;
+              count <= 6;
+            end
+            else begin
+              state <= IDLE;           // ignore floating bus
+            end
           state <= WASTE_ONE_CYCLE;
 		end
         
@@ -91,7 +91,7 @@ module slave(input clk,
           end
           else if(ack == 0) begin
 //             state <= STOP;	//initially sending one byte
-            state <= DONE;
+            state <= STOP;
           end
         end
         
