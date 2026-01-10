@@ -40,7 +40,7 @@ module tb_top;
     $display("WRITE TRANSACTION");
 
     header_in = 8'b01100111;    // write frame
-//     data_in   = 8'hA5;           // data to slave
+    data_in   = 8'hA5;           // data to slave
 
     start = 1; #10; start = 0;
 
@@ -60,8 +60,4 @@ module tb_top;
     $dumpvars(0,tb_top);
   end
   
-  initial begin
-    $monitor("value of header_data = %b | start = %b | rst = %b ",DUT.MASTER.read_data);
-  end
-
 endmodule

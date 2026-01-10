@@ -42,6 +42,7 @@ module master2(input clk,
             state <= TAKE_BUS;
             header_data <= header_in;
             header_count <= 6;
+            saved_data <= data_in;
           end
           else begin
             state <= IDLE;
