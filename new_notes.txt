@@ -1,0 +1,46 @@
+6-bit lane
+synch
+
+
+Pin number 
+0 - clk
+1 - ctrl0
+2 - ctrl1
+3 - ACK/NACK
+4 - data0
+5 - data1 
+
+CTRL1 CTRL0  Meaning                 
+-----------  ----------------------- 
+00           BUS FREE                			IDLE  
+01           MASTER OWNS BUS (WRITE) 			WRITE (M → S) 
+10           SLAVE OWNS BUS (READ)   			READ (S → M)  
+11           END OF FRAME      				STOP 
+
+Write flow :
+Master: IDLE → TAKE → HEADER → WAIT_ACK → DECIDE → SEND_DATA → STOP → DONE
+Slave : IDLE → HEADER → ACK → DECIDE → RECV_DATA → STOP → DONE
+
+Read flow : 
+Master: IDLE → TAKE → HEADER → WAIT_ACK → DECIDE → RELEASE → RECV_DATA → STOP → DONE
+Slave : IDLE → HEADER → ACK → DECIDE → SEND_DATA → STOP → DONE
+
+Frame Structure : total 8 bit
+frame[7:1] = reserved
+frame[0] = read/write (0 = read, 1 = write)
+
+ACK = 0 means +ve 
+ACK = 1 means -ve    
+
+
+sending data sequence 
+    >>>>>>>>>>>>>>>>>>
+   MSB - - - - - - LSB 
+   
+
+    
+    
+    
+      parameter [3:0] IDLE = 4'b0000, TAKE_BUS = 4'b0001, SEND_HEADER = 4'b0010, WAIT_ACK = 4'b0011, DECIDE = 4'b0100, SEND_DATA= 4'b0101, SEND_ACK  = 4'b0110, RELEASE_CTRL_BUS = 4'b0111, RECEIVE_DATA = 4'b1000, STOP = 4'b1001, DONE = 4'b1010, RECEIVE_ACK = 4'b1011;
+  
+    parameter [3:0] IDLE = 4'b0000, WASTE_ONE_CYCLE = 4'b0001, RECEIVE_HEADER = 4'b0010, SEND_ACK = 4'b0011, DECIDE = 4'b0100, TAKE_BUS = 4'b0101, SEND_DATA = 4'b0110, RECEIVE_DATA = 4'b0111, STOP = 4'b1000, DONE = 4'b1001, SEND_ACK2 = 4'b1010, RECEIVE_ACK = 4'b1011;	

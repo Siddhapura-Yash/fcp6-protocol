@@ -6,13 +6,14 @@ module slave(input clk,
 //   assign start = (ctrl == 2'b01) ? 1 : 0;
 
   
-  parameter [3:0] IDLE = 4'b0000, RECEIVE_HEADER = 4'b0001, SEND_ACK = 4'b0010, DECIDE = 4'b0011, TAKE_BUS = 4'b0100, SEND_DATA = 4'b0101, RECEIVE_DATA = 4'b0110, STOP = 4'b0111, DONE = 4'b1000,SEND_ACK2 = 4'b1001, RECEIVE_ACK = 4'b1010;
+    parameter [3:0] IDLE = 4'b0000, WASTE_ONE_CYCLE = 4'b0001, RECEIVE_HEADER = 4'b0010, SEND_ACK = 4'b0011, DECIDE = 4'b0100, TAKE_BUS = 4'b0101, SEND_DATA = 4'b0110, RECEIVE_DATA = 4'b0111, STOP = 4'b1000, DONE = 4'b1001, SEND_ACK2 = 4'b1010, RECEIVE_ACK = 4'b1011;
   
   reg [3:0]state = IDLE;
   reg [2:0]count = 6;
   reg [7:0]header_data;
   reg [7:0]saved_data = 8'b01010101;
   reg [7:0]received_data;
+  reg [2:0]receive_count;
   
   reg [1:0]data_out;
   reg data_enable;
@@ -26,17 +27,24 @@ module slave(input clk,
    	  case(state)
         
         IDLE : begin
-            if(ctrl == 2'b01) begin     // legal START frame
-              state <= RECEIVE_HEADER;
-              count <= 6;
-            end
-            else begin
-              state <= IDLE;           // ignore floating bus
-            end
+//             if(ctrl == 2'b01) begin     // legal START frame
+//               state <= RECEIVE_HEADER;
+//               count <= 6;
+//             end
+//             else begin
+//               state <= IDLE;           // ignore floating bus
+//             end
+          state <= WASTE_ONE_CYCLE;
 		end
         
+        WASTE_ONE_CYCLE : begin
+          if(ctrl == 2'b01) begin
+          state <= RECEIVE_HEADER;
+          end
+        end
+        
       	RECEIVE_HEADER : begin
-          header_data[count +: 2] <= data;
+          header_data[count +: 2] = data;
           if(count == 0) begin
             state <= SEND_ACK;
           end
@@ -58,6 +66,7 @@ module slave(input clk,
           end
           else if(header_data[0])begin	//master writing
             state <= RECEIVE_DATA;
+            receive_count <= 6;
           end
         end
         
@@ -87,15 +96,14 @@ module slave(input clk,
         end
         
         RECEIVE_DATA : begin
-          received_data[count +: 2] <= data;
-          if(header_data[0] == 0) begin //master reading
-            if(count == 0) begin
+          received_data[receive_count +: 2] <= data;
+          if(header_data[0] == 1) begin //master reading
+            if(receive_count == 0) begin
               state <= SEND_ACK2;
             end
             else begin
-//               count <= count - 2;
-              count <= (count >= 2) ? count - 2 : 0;
-
+              receive_count <= receive_count - 2;
+//               count <= (count >= 2) ? count - 2 : 0;
               state <= RECEIVE_DATA;
             end
           end
@@ -111,10 +119,12 @@ module slave(input clk,
             state <= DONE;
           end
           else if(header_data[0] == 1) begin	//master still sending data
-            state <= RECEIVE_DATA;
+//             state <= RECEIVE_DATA;
+            state <= DONE;	//currently we are sending only 1 byte
           end
           else if(header_data[0] == 0) begin		//slave want to communicate
-            state <= SEND_DATA;
+//             state <= SEND_DATA;
+            state <= DONE;  //currently we are sending only 1 byte
           end
           else begin
             state <= DONE;
@@ -125,7 +135,6 @@ module slave(input clk,
           state <= IDLE;
         end
         
-        
         default: state <= IDLE;
 //   	end
       endcase
@@ -135,6 +144,10 @@ module slave(input clk,
         //driving logic
         always@(negedge clk) begin
           case(state) 
+            IDLE : begin
+              //nothing to write
+            end
+            
           RECEIVE_HEADER : begin
             data_enable <= 0;
             ctrl_enable <= 0;

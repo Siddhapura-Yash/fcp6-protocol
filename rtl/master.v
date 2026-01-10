@@ -17,7 +17,7 @@ module master2(input clk,
   reg [7:0]header_data;
   reg [2:0]count; //inside take_bus state for header transmission
   reg [7:0]read_data; //reading from slave 
-  reg [7:0]saved_data = 8'b10101010; //will use for writing to slave
+  reg [7:0]saved_data = 8'b10011001; //will use for writing to slave
   reg [2:0]header_count;
   reg ack_enable;
   reg ack_out;
@@ -168,7 +168,7 @@ module master2(input clk,
                  case(state) 
                    
                    IDLE : begin
-                     header_count <= 6;
+                     header_count <= 4;
                    end
                    
                    TAKE_BUS : begin
@@ -279,13 +279,13 @@ module master2(input clk,
              
              
         
-// 		assign data =(data_enable) ? data_out : 'bz;
-// // 		assign busy = (state == IDLE) ? 0 : 1;
-// 		assign ack = (ack_enable) ? ack_out : 'bz;
-// 		assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+		assign data =(data_enable) ? data_out : 'bz;
+// 		assign busy = (state == IDLE) ? 0 : 1;
+		assign ack = (ack_enable) ? ack_out : 'bz;
+		assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
                    
-assign data = (data_enable && ctrl == 2'b01) ? data_out : 'bz;
-assign ack  = (ack_enable  && ctrl == 2'b10) ? ack_out  : 'bz;
-assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
+// assign data = (data_enable && ctrl == 2'b01) ? data_out : 'bz;
+// assign ack  = (ack_enable  && ctrl == 2'b10) ? ack_out  : 'bz;
+// assign ctrl = (ctrl_enable) ? ctrl_out : 'bz;
 
 endmodule

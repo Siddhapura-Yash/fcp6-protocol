@@ -40,11 +40,10 @@ module tb_top;
     $display("WRITE TRANSACTION");
 
     header_in = 8'b01100111;    // write frame
-    data_in   = 8'hA5;           // data to slave
+//     data_in   = 8'hA5;           // data to slave
 
     start = 1; #10; start = 0;
 
-    $display("READ DATA = %h", DUT.MASTER.read_data);
 
     if(DUT.MASTER.read_data == 8'hA5)
       $display("TEST PASSED");
@@ -52,6 +51,7 @@ module tb_top;
       $display("TEST FAILED");
 
     #200;
+    $display("READ DATA = %h", DUT.SLAVE.received_data);
     $finish;
   end
 
