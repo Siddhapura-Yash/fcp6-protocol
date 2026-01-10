@@ -30,7 +30,7 @@ YLink is a custom high-speed communication protocol designed to support half-dup
 | Bit | Description |
 |----|-------------|
 | [7:1] | Data Size (7-bit length field) |
-| [0] | R/W (0 = Write, 1 = Read) |
+| [0] | R/W (0 = Read, 1 = Write) |
 
 ## Write Transaction Flow (Master → Slave)
 
