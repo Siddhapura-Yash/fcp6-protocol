@@ -10,25 +10,30 @@ module master2(input clk,
   
   parameter [3:0] IDLE = 4'b0000,TAKE_BUS = 4'b0001, SEND_HEADER = 4'b0010, WAIT_ACK = 4'b0011, DECIDE = 4'b0100, SEND_DATA= 4'b0101, SEND_ACK  = 4'b0110, RELEASE_CTRL_BUS = 4'b0111, RECEIVE_DATA = 4'b1000, STOP = 4'b1001, DONE = 4'b1010, RECEIVE_ACK = 4'b1011;
   
-  //Remaining state
- 
+  reg [7:0]data_memory[63:0];	//will work as data memory
+  reg [7:0]read_data[63:0];	//received data will be stored in this memory
   
   reg [3:0]state;
   reg [7:0]header_data;
   reg [2:0]count; //inside take_bus state for header transmission
-  reg [7:0]read_data; //reading from slave 
-  reg [7:0]saved_data = 8'b10011001; //will use for writing to slave
+//   reg [7:0]read_data; //reading from slave 
+//   reg [7:0]saved_data = 8'b10011001; //will use for writing to slave
   reg [2:0]header_count;
   reg ack_enable;
   reg ack_out;
   reg [1:0]ctrl_out;
   reg ctrl_enable;
   
+//   reg [6:0]data_count = 0; //used for counting data frame while sending data
+  reg [7:0]mem_inc = 0; //increment by one to choose another byte from memory during sending
+  reg [7:0]read_mem_inc = 0; //help to store in next location while reading
+  
   reg [1:0]data_out;
   reg data_enable;
   
   //FSM LOGIC
   always@(posedge clk or posedge rst) begin
+    data_memory[1] <= 8'd99;
     if(rst) begin
       state <= IDLE;
       busy <= 0;
@@ -42,7 +47,7 @@ module master2(input clk,
             state <= TAKE_BUS;
             header_data <= header_in;
             header_count <= 6;
-            saved_data <= data_in;
+            data_memory[0] <= data_in;
           end
           else begin
             state <= IDLE;
@@ -60,7 +65,6 @@ module master2(input clk,
           end
           else begin	
             header_count <= header_count - 2;
-//             header_count <= (header_count >= 2) ? header_count - 2 : 0;
 			state <= SEND_HEADER;
           end
         end
@@ -72,6 +76,9 @@ module master2(input clk,
           end
           else if(ack == 1) begin
             state <= STOP;
+          end
+          else begin
+            state <= WAIT_ACK;
           end
         end
         
@@ -86,12 +93,11 @@ module master2(input clk,
              
          SEND_DATA : begin	//Write operation
            if(count == 0) begin
-             state <= RECEIVE_ACK;
+             state <= RECEIVE_ACK;             
+             mem_inc = mem_inc + 1;
            end
            else begin
-//              count <= count - 2;
              count <= (count >= 2) ? count - 2 : 0;
-
              state <= SEND_DATA;
            end
          end
@@ -101,32 +107,46 @@ module master2(input clk,
          end
 		
          RECEIVE_ACK : begin
-           if(ack == 0) begin
+           if(ack == 0 && mem_inc >= header_data[7:1]) begin
 // 			state <= STOP;	//we are intially sending 1 byte
-             state <= DONE;
+             state <= STOP;
+             count <= 6;
+           end
+           else if(ack == 0 && mem_inc < header_data[7:1]) begin
+             state <= SEND_DATA;
+             count <= 6;
            end
            else if(ack == 1) begin
              state <= SEND_DATA;
+             count <= 6;
+           end
+           else begin
+             state <= RECEIVE_ACK;
            end
 		 end
              
           RECEIVE_DATA : begin	//Read operation
             if(header_data[0] == 0) begin	//again cheking for R/W operation
-            read_data[count +: 2] <= data;
+              read_data[read_mem_inc][count +: 2] <= data;
               if(count == 0) begin
                 state <= SEND_ACK;
               end
               else begin
-//                 count <= count - 2;
                 count <= (count >= 2) ? count - 2 : 0;
-
                 state <= RECEIVE_DATA;
               end
               end
             end
              
            SEND_ACK : begin	//data received successfully
-             state <= STOP;
+             if(header_data[7:1] > read_mem_inc) begin
+               state <= RECEIVE_DATA;
+               read_mem_inc <= read_mem_inc + 1;
+			   count <= 6;
+             end
+             else if(header_data[7:1] <= read_mem_inc) begin
+               state <= STOP;
+             end
            end
              
              STOP : begin
@@ -135,8 +155,8 @@ module master2(input clk,
              	end
                else if(header_data[0] == 0) begin	//slave still sending data
 //                    state <= RECEIVE_DATA;
-                 state <= DONE;	//cuz we are doing for 1 byte only later will use aboev
-                 count <= 6;
+                 state <= DONE;	//cuz we are doing for 1 byte only later will use above
+                count <= 6;
              	end
                else if(header_data[0] == 1) begin //master still want to send data
 //                    state <= SEND_DATA;
@@ -212,7 +232,7 @@ module master2(input clk,
                    end
                         
 					SEND_DATA : begin
-                      data_out <= saved_data[count +: 2];
+                      data_out <= data_memory[mem_inc][count +: 2];	//mem[row][column]
                       data_enable <= 1;
                       ctrl_out <= 2'b01;
                       ctrl_enable <= 1;

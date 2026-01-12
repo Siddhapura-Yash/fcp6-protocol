@@ -25,9 +25,14 @@ Read flow :
 Master: IDLE → TAKE → HEADER → WAIT_ACK → DECIDE → RELEASE → RECV_DATA → STOP → DONE
 Slave : IDLE → HEADER → ACK → DECIDE → SEND_DATA → STOP → DONE
 
-Frame Structure : total 8 bit
-frame[7:1] = reserved
+Frame Structure : 
+
+Information frame : total 8 bit
+frame[7:1] = will decide no. of bytes in data frame 
 frame[0] = read/write (0 = read, 1 = write)
+
+Data frame : size will depened on frame[7:1]
+every bit will contain information 
 
 ACK = 0 means +ve 
 ACK = 1 means -ve    

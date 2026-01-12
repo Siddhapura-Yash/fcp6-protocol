@@ -11,8 +11,8 @@ module slave(input clk,
   reg [3:0]state = IDLE;
   reg [2:0]count = 6;
   reg [7:0]header_data;
-  reg [7:0]saved_data = 8'd88;
-  reg [7:0]received_data;
+  //   reg [7:0]saved_data = 8'd88;		//used while master reading
+  //   reg [7:0]received_data;			//used when master writing
   reg [2:0]receive_count;
   
   reg [1:0]data_out;
@@ -20,8 +20,13 @@ module slave(input clk,
   reg ctrl_enable, ack_enable;
   reg [1:0] ctrl_out;
   reg ack_out;
-
   
+  reg [7:0]read_memory[63:0];	//data will be stored in this memory
+  reg [7:0]saved_data[63:0];	//from this memory data will be read by master
+
+  reg [7:0]read_mem_inc = 0;	//used for reading
+  reg [7:0]write_mem_inc = 0;	//used for writing
+  	
   always@(posedge clk) begin
 //     if(start) begin
    	  case(state)
@@ -29,7 +34,8 @@ module slave(input clk,
         IDLE : begin
             if(ctrl == 2'b01) begin     // legal START frame
               state <= RECEIVE_HEADER;
-              count <= 6;
+              count <= 6;    
+              saved_data[0] <= 8'd88;
             end
             else begin
               state <= IDLE;           // ignore floating bus
@@ -40,6 +46,9 @@ module slave(input clk,
         WASTE_ONE_CYCLE : begin
           if(ctrl == 2'b01) begin
           state <= RECEIVE_HEADER;
+          end
+          else begin
+            state <= WASTE_ONE_CYCLE;
           end
         end
         
@@ -77,9 +86,9 @@ module slave(input clk,
         SEND_DATA : begin
           if(count == 0) begin	
             state <= RECEIVE_ACK;
+            write_mem_inc <= write_mem_inc + 1;
           end
           else begin
-//             count = count - 2;
             count <= (count >= 2) ? count - 2 : 0;
             state <= SEND_DATA;
           end
@@ -88,30 +97,46 @@ module slave(input clk,
         RECEIVE_ACK : begin 
           if(ack == 1) begin // 1 = NACK
             state <= SEND_DATA;
+            count <= 6;
           end
-          else if(ack == 0) begin
-//             state <= STOP;	//initially sending one byte
-            state <= STOP;
+          else if(ack == 0 && write_mem_inc > header_data[7:1]) begin
+            state <= STOP;	//initially sending one byte
+          end
+          else if(ack == 0 && write_mem_inc <= header_data[7:1]) begin
+            state <= SEND_DATA;	//initially sending one byte
+            count <= 6;
+          end
+          else begin
+            state <= RECEIVE_ACK;
           end
         end
         
         RECEIVE_DATA : begin
-          received_data[receive_count +: 2] <= data;
+          read_memory[read_mem_inc][receive_count +: 2] <= data;
           if(header_data[0] == 1) begin //master reading
             if(receive_count == 0) begin
               state <= SEND_ACK2;
+              read_mem_inc <= read_mem_inc + 1;
             end
             else begin
               receive_count <= receive_count - 2;
-//               count <= (count >= 2) ? count - 2 : 0;
               state <= RECEIVE_DATA;
             end
           end
         end
         
         SEND_ACK2 : begin
-          state <= STOP;
-          count <= 6;
+//           state <= STOP;
+//           count <= 6;
+          if(header_data[7:1] > read_mem_inc) begin
+               state <= RECEIVE_DATA;
+               read_mem_inc <= read_mem_inc + 1;
+			   receive_count <= 6;
+             end
+          else if(read_mem_inc >= header_data[7:1] ) begin
+               state <= STOP;
+               receive_count <= 6;
+             end
         end
         
         STOP : begin	//chceking communication status
@@ -187,7 +212,7 @@ module slave(input clk,
             
             SEND_DATA : begin
               data_enable <= 1;
-              data_out <= saved_data[count +: 2];
+              data_out <= saved_data[write_mem_inc][count +: 2];
               ctrl_out <= 2'b10; 
 			  ctrl_enable <= 1;
               ack_enable <= 0;
@@ -233,6 +258,7 @@ module slave(input clk,
                 ack_enable  <= 0;
                 ctrl_out    <= 2'b00;
                 ack_out     <= 0;
+              	count <= 6;
             end
             
           default: begin 

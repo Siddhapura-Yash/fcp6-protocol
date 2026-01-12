@@ -38,35 +38,36 @@ module tb_top;
     //---------------- WRITE TEST ----------------
     $display("WRITE TRANSACTION");
 
-    header_in = 8'b01100111;    // write frame
-    data_in   = 8'hA5;           // data to slave
+    header_in = 8'b00000101;    // write frame	2 bytes
+    data_in   = 8'h10;           // data to slave
 
     start = 1; #10; start = 0;
 
 	#200;
-    if(DUT.SLAVE.received_data == 8'hA5) begin
+    if(DUT.SLAVE.read_memory[0] == 8'h10) begin
       $display("WRITE TRANSACTION TEST PASSED");
-      $display("Expected data = %d | Received data = %d",data_in,DUT.SLAVE.received_data);
+      $display("Expected data = %d | Received data = %d",data_in,DUT.SLAVE.read_memory[0]);
     end
     else	begin
       $display("TEST FAILED");
   end
 
-    $display("READ DATA = %h", DUT.SLAVE.received_data);
+    $display("READ DATA = %h", DUT.SLAVE.read_memory[0]);
+    $display("READ DATA = %h", DUT.SLAVE.read_memory[1]);
     
     #200;
     //--------------------------READ TEST------------------------------
     $display("READ TRANSACTION");
-    header_in = 8'b01100110;
+    header_in = 8'b00000100;	//2 bytes
     data_in = 8'hA5;
     
     start = 1; #10; start = 0;
     
-    #200;
-    $display("Read data = %d",DUT.MASTER.read_data);
-    if(DUT.MASTER.read_data == 8'd88) begin
+    #400;
+    $display("Read data = %d",DUT.MASTER.read_data[0]);
+    if(DUT.MASTER.read_data[0] == 8'd88) begin
       $display("READ TRANSACTION TEST PASSED");
-      $display("Expected data = %d | Received data = %d",DUT.SLAVE.saved_data,DUT.MASTER.read_data);
+      $display("Expected data = %d | Received data = %d",DUT.SLAVE.saved_data[0],DUT.MASTER.read_data[0]);
     end
     else begin
       $display("TEST FAILED");
