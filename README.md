@@ -55,6 +55,6 @@ IDLE → HEADER → ACK → DECIDE → SEND_DATA → STOP → DONE
 - Master–Slave architecture
 
 ## Status
-Specification & RTL under active development.
+RTL under active development.
 
 Author : Yash 
