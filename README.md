@@ -1,8 +1,8 @@
-# YLink Protocol
+# fcp6 Protocol
 
 eda playground link : https://edaplayground.com/x/faVL
 
-YLink is a custom high-speed communication protocol designed to support half-duplex transfer using only 6 physical pins
+fcp6 is a custom high-speed communication protocol designed to support half-duplex transfer using only 6 physical pins
 
 ## Physical Interface 
 | Pin | Function |
